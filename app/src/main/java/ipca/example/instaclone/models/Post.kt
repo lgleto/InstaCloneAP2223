@@ -4,15 +4,16 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.snackbar.ContentViewCallback
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import java.util.*
 
 data class Post (
-    var comment : String,
-    var postDate : Date,
-    var userId : String,
-    var urlToImage : String,
+    var comment     : String,
+    var postDate    : Date,
+    var userId      : String,
+    var urlToImage  : String,
     ){
 
     fun toHashMap() : HashMap<String,Any> {
@@ -27,7 +28,7 @@ data class Post (
     fun sendPost(callback: (error:String?)->Unit) {
         val db = Firebase.firestore
         db.collection("posts")
-            .add(this)
+            .add(toHashMap())
             .addOnSuccessListener { documentReference ->
                 callback(null)
             }
@@ -37,6 +38,13 @@ data class Post (
     }
 
     companion object {
-
+        fun fromDoc(doc:DocumentSnapshot) : Post {
+            return Post(
+                doc.getString("comment" )!!,
+                doc.getDate("postDate")!!,
+                doc.getString("userId")!!,
+                doc.getString("urlToImage")!!
+            )
+        }
     }
 }

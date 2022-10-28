@@ -31,7 +31,6 @@ class PostFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         binding.fabSend.setOnClickListener {
             Post(binding.editTextComment.text.toString(),
                 Date(),
@@ -45,8 +44,6 @@ class PostFragment : Fragment() {
                 }
             }
         }
-
-
     }
 
     override fun onDestroyView() {

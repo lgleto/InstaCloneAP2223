@@ -1,5 +1,6 @@
 package ipca.example.instaclone.ui.home
 
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,10 +15,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import ipca.example.instaclone.R
 import ipca.example.instaclone.databinding.FragmentHomeBinding
 import ipca.example.instaclone.databinding.RowPostBinding
 import ipca.example.instaclone.models.Post
+import java.io.InputStream
 import java.util.*
 
 class HomeFragment : Fragment() {
@@ -83,6 +86,21 @@ class HomeFragment : Fragment() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             var item = posts[position]
             holder.apply {
+                val storage = Firebase.storage
+                var storageRef = storage.reference
+                var islandRef = storageRef.child("images/${item.urlToImage}")
+
+                val ONE_MEGABYTE: Long = 10024 * 1024
+                islandRef.getBytes(ONE_MEGABYTE).addOnSuccessListener {
+
+                    val inputStream = it.inputStream()
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    imageViewPhoto.setImageBitmap(bitmap)
+                }.addOnFailureListener {
+                    // Handle any errors
+                    Log.d(TAG, it.toString() )
+                }
+
                 textViewTitle.text = item.comment
                 textViewDate.text = item.postDate.toString()
             }
@@ -92,5 +110,9 @@ class HomeFragment : Fragment() {
             return posts.size
         }
 
+    }
+
+    companion object {
+        const val TAG = "HomeFragment"
     }
 }

@@ -1,38 +1,37 @@
-package ipca.example.instaclone.ui.home
+package ipca.example.instaclone.ui.notifications
 
-import android.app.Activity.RESULT_OK
-import android.content.ComponentCallbacks
+import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
+import android.view.View.OnFocusChangeListener
 import android.view.ViewGroup
 import androidx.core.content.FileProvider
+import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import com.google.android.material.snackbar.Snackbar
-import com.google.firebase.auth.ktx.auth
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.Timestamp
 import com.google.firebase.storage.ktx.storage
 import com.google.firebase.storage.ktx.storageMetadata
-import ipca.example.instaclone.databinding.FragmentPostBinding
-import ipca.example.instaclone.models.Post
+import ipca.example.instaclone.databinding.FragmentProfileBinding
+import ipca.example.instaclone.models.User
+import ipca.example.instaclone.ui.home.HomeFragment
+import ipca.example.instaclone.ui.home.PostFragment
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
-class PostFragment : Fragment() {
+class ProfileFragment : Fragment() {
 
-    private var _binding: FragmentPostBinding? = null
+    private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
     override fun onCreateView(
@@ -40,32 +39,62 @@ class PostFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentPostBinding.inflate(inflater, container, false)
+        _binding = FragmentProfileBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        dispatchTakePictureIntent()
-        binding.fabSend.setOnClickListener {
-            uploadFile{filename ->
-                filename?.let {
-                    Post(binding.editTextComment.text.toString(),
-                        Date(),
-                        Firebase.auth.currentUser?.uid?:"",
-                        it
-                    ).sendPost { error ->
-                        error?.let {
-                            Snackbar.make(binding.root,"Alguma coisa correu mal",Snackbar.LENGTH_LONG)
-                        }?: kotlin.run {
-                            findNavController().popBackStack()
+        binding.buttonChangePhoto.setOnClickListener {
+            dispatchTakePictureIntent()
+        }
+
+        val uid = FirebaseAuth.getInstance().currentUser!!.uid
+        val db = Firebase.firestore
+        db.collection("users").document(uid)
+            .addSnapshotListener { value, error ->
+
+            val user = value?.let {
+                User.fromDoc(it)
+            }
+                binding.editTextName.setText(user?.username)
+                binding.editTextEmail.setText(user?.email)
+                user?.photoFilename?.let{
+                    val storage = Firebase.storage
+                    var storageRef = storage.reference
+                    var islandRef = storageRef.child("userPhotos/${it}")
+
+                    val ONE_MEGABYTE: Long = 10024 * 1024
+                    islandRef.getBytes(ONE_MEGABYTE).addOnSuccessListener {
+
+                        val inputStream = it.inputStream()
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        binding.imageViewUserPhoto.setImageBitmap(bitmap)
+                    }.addOnFailureListener {
+                        // Handle any errors
+                        Log.d(HomeFragment.TAG, it.toString() )
+                    }
+                }
+            }
+
+
+        val focusChange = object : OnFocusChangeListener {
+            override fun onFocusChange(view: View?, hasFocus: Boolean) {
+                if (!hasFocus){
+                    when(view){
+                        binding.editTextName -> {
+                            User.postField(binding.editTextName.text.toString(), "username")
+                        }
+                        binding.editTextEmail -> {
+                            User.postField(binding.editTextEmail.text.toString(), "email")
                         }
                     }
-                }?:run{
-                    // apresentar erro
                 }
             }
         }
+
+        binding.editTextName.onFocusChangeListener = focusChange
+        binding.editTextEmail.onFocusChangeListener = focusChange
     }
 
     override fun onDestroyView() {
@@ -74,10 +103,15 @@ class PostFragment : Fragment() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+        if (requestCode == PostFragment.REQUEST_IMAGE_CAPTURE && resultCode == Activity.RESULT_OK) {
             ///val imageBitmap = data?.extras?.get("data") as Bitmap
             BitmapFactory.decodeFile(currentPhotoPath).apply {
-                binding.imageViewPhoto.setImageBitmap(this)
+                binding.imageViewUserPhoto.setImageBitmap(this)
+                uploadFile {
+                    if (it != null) {
+                        User.postField(it, "photoFilename")
+                    }
+                }
             }
         }else{
             findNavController().popBackStack()
@@ -104,7 +138,7 @@ class PostFragment : Fragment() {
                         it
                     )
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-                    startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
+                    startActivityForResult(takePictureIntent, PostFragment.REQUEST_IMAGE_CAPTURE)
                 }
             }
         }
@@ -115,10 +149,10 @@ class PostFragment : Fragment() {
     @Throws(IOException::class)
     private fun createImageFile(): File {
         // Create an image file name
-        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+        val userId: String = FirebaseAuth.getInstance().currentUser!!.uid
         val storageDir: File = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
         return File.createTempFile(
-            "JPEG_${timeStamp}_", /* prefix */
+            "JPEG_${userId}_", /* prefix */
             ".jpg", /* suffix */
             storageDir /* directory */
         ).apply {
@@ -135,28 +169,22 @@ class PostFragment : Fragment() {
             contentType = "image/jpg"
         }
 
-        val uploadTask = storageRef.child("images/${file.lastPathSegment}")
+        val uploadTask = storageRef.child("userPhotos/${file.lastPathSegment}")
             .putFile(file, metadata)
 
         uploadTask.addOnProgressListener {
             val progress = (100.0 * it.bytesTransferred) / it.totalByteCount
-            Log.d(TAG, "Upload is $progress% done")
+            Log.d(PostFragment.TAG, "Upload is $progress% done")
         }.addOnPausedListener {
-            Log.d(TAG, "Upload is paused")
+            Log.d(PostFragment.TAG, "Upload is paused")
         }.addOnFailureListener {
             // Handle unsuccessful uploads
-            Log.d(TAG, it.toString())
+            Log.d(PostFragment.TAG, it.toString())
             callback(null)
         }.addOnSuccessListener {
             // Handle successful uploads on complete
-            Log.d(TAG, it.uploadSessionUri.toString())
+            Log.d(PostFragment.TAG, it.uploadSessionUri.toString())
             callback(file.lastPathSegment)
         }
     }
-
-    companion object {
-        const val REQUEST_IMAGE_CAPTURE = 1001
-        const val TAG = "PostFragment"
-    }
-
 }

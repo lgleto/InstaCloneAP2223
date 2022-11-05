@@ -15,6 +15,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.ktx.messaging
+import com.google.firebase.messaging.ktx.remoteMessage
 import com.google.firebase.storage.ktx.storage
 import ipca.example.instaclone.R
 import ipca.example.instaclone.databinding.FragmentHomeBinding
@@ -103,7 +105,19 @@ class HomeFragment : Fragment() {
 
                 textViewTitle.text = item.comment
                 textViewDate.text = item.postDate.toString()
+
+                imageViewPhoto.setOnClickListener {
+                    val SENDER_ID = 941462621433
+
+                    val fm = Firebase.messaging
+                    fm.send(remoteMessage("$SENDER_ID@fcm.googleapis.com") {
+                        setMessageId("cPHLpGVxQeCXD9kF29qafh:APA91bEQ98QQ18_28g8QE0BxSdI1dA8ouZbAaONdS0KlpNRGZVQU5pmfXMmYsS5XTeVXNhWTZI3XzGrdyfIQ0VKRpiQYmkGzr0CvTVyqzOLu16GZ_2MVj6_CJXlB8pqunI851oWjJxsh")
+                        addData("my_message", "Hello World")
+                        addData("my_action", "SAY_HELLO")
+                    })
+                }
             }
+
         }
 
         override fun getItemCount(): Int {

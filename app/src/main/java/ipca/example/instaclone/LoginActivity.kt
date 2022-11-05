@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import ipca.example.instaclone.databinding.ActivityLoginBinding
+import ipca.example.instaclone.models.User
 
 class LoginActivity : AppCompatActivity() {
 
@@ -33,7 +34,16 @@ class LoginActivity : AppCompatActivity() {
                     if (task.isSuccessful) {
                         // Sign in success, update UI with the signed-in user's information
                         Log.d(TAG, "signInWithEmail:success")
-                        //val user = auth.currentUser
+                        //
+                        //
+                        //
+                        val user = auth.currentUser
+                        var token = this@LoginActivity.PREF_FCM_TOKEN
+                        if (token?.isNotEmpty()?:false){
+                            User.postAddToke(this@LoginActivity.PREF_FCM_TOKEN!!)
+                        }
+
+
                         val intent = Intent(this, MainActivity::class.java)
                         startActivity(intent)
                     } else {

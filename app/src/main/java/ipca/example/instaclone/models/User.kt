@@ -49,8 +49,15 @@ data class User (
             db.collection("users")
                 .document(uid )
                 .update(field,name)
+        }
 
-
+        fun postAddToke(token:String){
+            val uid = FirebaseAuth.getInstance().currentUser!!.uid
+            val db = Firebase.firestore
+            db.collection("users")
+                .document(uid )
+                .collection("fcm_tokens")
+                .add(hashMapOf("token" to token))
         }
 
         fun fromDoc(doc:DocumentSnapshot) : User {
